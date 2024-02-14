@@ -6,6 +6,45 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+void dirwalk(const char *dir_path, bool symbolic, bool directories, bool files, bool sort);
+const char *getDir(int argc, char *argv[]);
+
+int main(int argc, char *argv[])
+{
+    const char *startDir = getDir(argc, argv);
+
+    int ln = 0;
+    int dir = 0;
+    int fl = 0;
+    int sort = 0;
+
+    char opt;
+
+    while ((opt = getopt(argc, argv, "ldfs")) != -1)
+    {
+        if (opt == 'l')
+        {
+            ln = 1;
+        }
+        else if (opt == 'd')
+        {
+            dir = 1;
+        }
+        else if (opt == 'f')
+        {
+            fl = 1;
+        }
+        else if (opt == 's')
+        {
+            sort = 1;
+        }
+    }
+
+    dirwalk(startDir, ln, dir, fl, sort);
+
+    return 0;
+}
+
 void dirwalk(const char *dir_path, bool symbolic, bool directories, bool files, bool sort)
 {
     struct dirent **nameList;
@@ -18,6 +57,8 @@ void dirwalk(const char *dir_path, bool symbolic, bool directories, bool files, 
         perror("scandir");
         exit(EXIT_FAILURE);
     }
+
+    printf("%s\n", dir_path);
 
     for (int i = 0; i < numEntries; i++)
     {
@@ -80,40 +121,4 @@ const char *getDir(int argc, char *argv[])
     }
 
     return ".";
-}
-
-int main(int argc, char *argv[])
-{
-    const char *startDir = getDir(argc, argv);
-
-    int ln = 0;
-    int dir = 0;
-    int fl = 0;
-    int sort = 0;
-
-    char opt;
-
-    while ((opt = getopt(argc, argv, "ldfs")) != -1)
-    {
-        if (opt == 'l')
-        {
-            ln = 1;
-        }
-        else if (opt == 'd')
-        {
-            dir = 1;
-        }
-        else if (opt == 'f')
-        {
-            fl = 1;
-        }
-        else if (opt == 's')
-        {
-            sort = 1;
-        }
-    }
-
-    dirwalk(startDir, ln, dir, fl, sort);
-
-    return 0;
 }
