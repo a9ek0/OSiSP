@@ -116,9 +116,13 @@ const char *getDir(int argc, char *argv[])
         }
         else
         {
+            if (argv[i][strlen(argv[i]) - 1] == '/')
+            {
+                argv[i][strlen(argv[i]) - 1] = '\0';
+            }
             return argv[i];
         }
     }
-
+    
     return ".";
 }
