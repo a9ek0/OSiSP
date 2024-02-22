@@ -12,6 +12,7 @@ const char *getDir(int argc, char *argv[]);
 int main(int argc, char *argv[])
 {
     const char *startDir = getDir(argc, argv);
+    printf("%s\n", startDir);
 
     int ln = 0;
     int dir = 0;
@@ -39,7 +40,7 @@ int main(int argc, char *argv[])
             sort = 1;
         }
     }
-
+    
     dirwalk(startDir, ln, dir, fl, sort);
 
     return 0;
@@ -57,8 +58,6 @@ void dirwalk(const char *dir_path, bool symbolic, bool directories, bool files, 
         perror("scandir");
         exit(EXIT_FAILURE);
     }
-
-    printf("%s\n", dir_path);
 
     for (int i = 0; i < numEntries; i++)
     {
