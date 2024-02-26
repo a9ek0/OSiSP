@@ -1,4 +1,5 @@
 .vscode/
-.o
+*.o
 *.log
 *.exe
+main
