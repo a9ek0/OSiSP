@@ -1,0 +1,7 @@
+.vscode/
+*.o
+*.log
+*.exe
+*.out
+parent
+child

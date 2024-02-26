@@ -1,19 +1,19 @@
 CC = gcc
 
-CFLAGS = -W -Wall -Wno-unused-parameter -Wno-unused-variable -std=c11 -pedantic
+CFLAGS = -c -W -Wall -Wno-unused-parameter -Wno-unused-variable -std=c11 -pedantic
 
 .PHONY:all
 all: start
 
-start:	parent.o child_00.o
+start:	parent.o child.o
 	$(CC) parent.o -o parent
-	$(CC) child_00.o -o child_00
+	$(CC) child.o -o child
 	
-parent.o: parent.c
-	$(CC) $(CFLAGS) parent.c
+parent.o: src/parent.c
+	$(CC) $(CFLAGS) src/parent.c
 	
-child_00.o: child_00.c
-	$(CC) $(CFLAGS) child_00.c
+child.o: src/child.c
+	$(CC) $(CFLAGS) src/child.c
 
 clean:
-	rm -rf *.o parent child	
+	rm -rf *.o src/parent src/child

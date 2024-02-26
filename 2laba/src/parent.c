@@ -45,7 +45,7 @@ int main(int argc, char *argv[], char *envp[])
     if (argc < 2)
     {
         printf("File name missing!\n");
-        return 1;
+      //  return 1;
     }
     setlocale(LC_COLLATE, "C");
 
@@ -106,7 +106,6 @@ int main(int argc, char *argv[], char *envp[])
                     char child_path1[255];
 
                     snprintf(child_path1, sizeof(child_path1), "%s/child", child_path);
-                    printf("%s\n", child_path1);
 
                     execl(child_path1, child_program, argv[1], nullptr);
 
@@ -179,7 +178,7 @@ int main(int argc, char *argv[], char *envp[])
             if (child_counter < MAX_CHILDREN)
             {
                 char *envVar = "CHILD_PATH";
-                child_path = getEnvPath(environ, envp);
+                child_path = getEnvPath(envVar, envp);
 
                 char *child_path = getenv("CHILD_PATH");
                 if (!child_path)
