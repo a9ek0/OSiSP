@@ -5,6 +5,21 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdbool.h>
+#include <getopt.h>
+
+#define PATH_MAX 4096
+
+extern int scandir(const char *dirp, struct dirent ***namelist,
+            int (*filter)(const struct dirent *),
+            int (*compar)(const struct dirent **, const struct dirent **));
+extern int alphasort();
+extern int lstat(const char *restrict path, struct stat *restrict buf); 
+
+int compareStrings(const void *a, const void *b)
+{
+    return strcmp(*(const char **)a, *(const char **)b);
+}
 
 void dirwalk(const char *dir_path, bool symbolic, bool directories, bool files, bool sort);
 const char *getDir(int argc, char *argv[]);

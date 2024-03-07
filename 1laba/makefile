@@ -1,15 +1,35 @@
 CC = gcc
+DEBUG_FLAGS = -g -ggdb -std=c11 -pedantic -W -Wall -Wextra
+RELEASE_FLAGS = -std=c11 -pedantic -W -Wall -Wextra -Werror
 
-CFLAGS = -c -W -Wall -Wextra
+ifeq ($(MODE),debug)
+    CFLAGS = $(DEBUG_FLAGS)
+    BUILD_DIR = build/debug
+else
+    CFLAGS = $(RELEASE_FLAGS)
+    BUILD_DIR = build/release
+endif
 
-.PHONY:all
-all: start
+.PHONY: all clean
 
-start:	main.o	
-	$(CC) main.o -o main
+all: build_dir start
 
-main.o: src/main.cpp
-	$(CC) $(CFLAGS) src/main.cpp
-	
+build_dir:
+	mkdir -p $(BUILD_DIR)
+
+start: $(BUILD_DIR)/main
+
+$(BUILD_DIR)/main: $(BUILD_DIR)/main.o
+	$(CC) $< -o $@
+
+$(BUILD_DIR)/main.o: src/main.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 clean:
-	rm -rf *.o main
+	rm -rf *.o $(BUILD_DIR)
+
+debug: CFLAGS += $(DEBUG_FLAGS)
+debug: all
+
+release: CFLAGS += $(RELEASE_FLAGS)
+release: all
