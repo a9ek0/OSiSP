@@ -1,19 +1,35 @@
 CC = gcc
+DEBUG_FLAGS = -g -ggdb -std=c11 -Wno-unused-parameter -Wno-unused-variable -W -Wall -Wextra
+RELEASE_FLAGS = -W -Wall -Wno-unused-parameter -Wno-unused-variable -std=c11 -pedantic
 
-CFLAGS = -c -W -Wall -Wno-unused-parameter -Wno-unused-variable -std=c11 -pedantic
+ifeq ($(MODE),debug)
+    CFLAGS = $(DEBUG_FLAGS)
+    BUILD_DIR = build/debug
+else
+    CFLAGS = $(RELEASE_FLAGS)
+    BUILD_DIR = build/release
+endif
 
-.PHONY:all
-all: start
+.PHONY: all clean
 
-start:	parent.o child.o
-	$(CC) parent.o -o parent
-	$(CC) child.o -o child
-	
-parent.o: src/parent.c
-	$(CC) $(CFLAGS) src/parent.c
-	
-child.o: src/child.c
-	$(CC) $(CFLAGS) src/child.c
+all: build_dir start
+
+build_dir:
+	mkdir -p $(BUILD_DIR)
+
+start: $(BUILD_DIR)/parent $(BUILD_DIR)/child
+
+$(BUILD_DIR)/parent: $(BUILD_DIR)/parent.o
+	$(CC) $< -o $@
+
+$(BUILD_DIR)/child: $(BUILD_DIR)/child.o
+	$(CC) $< -o $@
+
+$(BUILD_DIR)/parent.o: src/parent.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/child.o: src/child.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf *.o src/parent src/child
+	rm -rf $(BUILD_DIR)/*.o $(BUILD_DIR)/parent $(BUILD_DIR)/child
