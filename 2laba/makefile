@@ -6,7 +6,7 @@ ifeq ($(MODE),debug)
     CFLAGS = $(DEBUG_FLAGS)
     BUILD_DIR = build/debug
 else
-    CFLAGS = $(RELEASE_FLAGS)
+    CFLAGS = $(RELEASE_FLAGS)ё
     BUILD_DIR = build/release
 endif
 

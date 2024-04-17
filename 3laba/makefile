@@ -1,6 +1,6 @@
 CC = gcc
-DEBUG_FLAGS = -g -ggdb -std=c11 -Wno-unused-parameter -Wno-unused-variable -W -Wall -Wextra
-RELEASE_FLAGS = -W -Wall -Wno-unused-parameter -Wno-unused-variable -std=c11 -pedantic
+DEBUG_FLAGS = -g -ggdb -std=c11 -pedantic -W -Wall -Wextra
+RELEASE_FLAGS = -std=c11 -pedantic -W -Wall -Wextra -Werror
 
 ifeq ($(MODE),debug)
     CFLAGS = $(DEBUG_FLAGS)
@@ -19,8 +19,8 @@ build_dir:
 
 start: $(BUILD_DIR)/parent $(BUILD_DIR)/child
 
-$(BUILD_DIR)/parent: $(BUILD_DIR)/parent.o
-	$(CC) $< -o $@
+$(BUILD_DIR)/parent: $(BUILD_DIR)/parent.o $(BUILD_DIR)/process_management.o $(BUILD_DIR)/signal_handling.o $(BUILD_DIR)/utilities.o
+	$(CC) $^ -o $@
 
 $(BUILD_DIR)/child: $(BUILD_DIR)/child.o
 	$(CC) $< -o $@
@@ -30,6 +30,16 @@ $(BUILD_DIR)/parent.o: src/parent.c
 
 $(BUILD_DIR)/child.o: src/child.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/process_management.o: src/process_management.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/signal_handling.o: src/signal_handling.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/utilities.o: src/utilities.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
 
 clean:
 	rm -rf $(BUILD_DIR)/*.o $(BUILD_DIR)/parent $(BUILD_DIR)/child
