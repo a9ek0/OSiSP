@@ -6,19 +6,19 @@
 #include "utilities.h"
 #include "globals.h"
 
-size_t num_child_processes = 0;
-size_t max_child_processes = MAX_CHILDREN;
-process_info *child_processes = NULL;
-char child_name[CHILD_NAME_LENGTH] = "./child";
-
-int main() {
+int main(void) {
     init_signals_handling();
     allocate_child_processes();
+
     while (true) {
         char option;
         int option_index;
+
         fflush(stdin);
-        if (parse_input_option(&option, &option_index) == -1) continue;
+
+        if (parse_input_option(&option, &option_index) == -1)
+            continue;
+
         switch (option) {
             case '+': {
                 create_child_process();
@@ -53,6 +53,5 @@ int main() {
             }
         }
     }
-    return 0;
 }
 

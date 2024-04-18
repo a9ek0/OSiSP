@@ -22,8 +22,8 @@ start: $(BUILD_DIR)/parent $(BUILD_DIR)/child
 $(BUILD_DIR)/parent: $(BUILD_DIR)/parent.o $(BUILD_DIR)/process_management.o $(BUILD_DIR)/signal_handling.o $(BUILD_DIR)/utilities.o
 	$(CC) $^ -o $@
 
-$(BUILD_DIR)/child: $(BUILD_DIR)/child.o
-	$(CC) $< -o $@
+$(BUILD_DIR)/child: $(BUILD_DIR)/child.o $(BUILD_DIR)/process_management.o $(BUILD_DIR)/signal_handling.o $(BUILD_DIR)/utilities.o
+	$(CC) $^ -o $@
 
 $(BUILD_DIR)/parent.o: src/parent.c
 	$(CC) $(CFLAGS) -c $< -o $@
