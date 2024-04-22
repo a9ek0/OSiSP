@@ -18,33 +18,33 @@ typedef struct {
     u_int8_t type;
 } Message;
 
-typedef struct node_ring {
+typedef struct Ring_node {
     int32_t shmid_curr;
     int32_t shmid_next;
     int32_t shmid_prev;
     Message message[LEN_MESSAGE];
     bool flag_is_busy;
-} node;
+} Node;
 
-typedef struct ring_shared_buffer {
+typedef struct Ring {
     int32_t shmid;
     size_t consumed;
     size_t produced;
     int32_t shmid_begin;
     int32_t shmid_tail;
-} ring_shared_buffer;
+} Ring;
 
-ring_shared_buffer *create_buff();
+Ring *init_ring();
 
-void clear_buff(ring_shared_buffer *);
+void clear_buff(Ring *);
 
-Message *extract_message(ring_shared_buffer *);
+Message *pop_message(Ring *);
 
-node *create_node();
+Node *create_node();
 
-void append(ring_shared_buffer **);
+void allocate_node(Ring **begin);
 
-void add_message(ring_shared_buffer *, Message *);
+void push_message(Ring *ring, Message *message);
 
 #endif //RING_H
 
