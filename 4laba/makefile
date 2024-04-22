@@ -19,13 +19,10 @@ build_dir:
 
 start: $(BUILD_DIR)/main
 
-$(BUILD_DIR)/main: $(BUILD_DIR)/main.o $(BUILD_DIR)/list.o $(BUILD_DIR)/ring.o
+$(BUILD_DIR)/main: $(BUILD_DIR)/main.o $(BUILD_DIR)/ring.o
 	$(CC) $^ -o $@
 
 $(BUILD_DIR)/main.o: src/main.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD_DIR)/list.o: src/list.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/ring.o: src/ring.c

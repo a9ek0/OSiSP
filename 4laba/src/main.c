@@ -8,12 +8,14 @@
 #include <signal.h>
 #include <fcntl.h>
 #include "ring.h"
-#include "list.h"
 #include <time.h>
 
 #define BUFFER_SIZE 6
 #define SIGKILL     9
 #define SIGUSR1     10
+
+pid_t* childs = NULL;
+size_t total_size = 0;
 
 sem_t *RING_EMPTY;
 sem_t *RING_FILLED;
@@ -31,16 +33,6 @@ Message generate_message(void);
 void handler_stop_proc();
 
 void display_message(const Message *message);
-
-void delete_all_child_proc(node_list *head);
-
-void setup_signal_handler(void) {
-    struct sigaction sa;
-    sa.sa_handler = handler_stop_proc;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGUSR1, &sa, NULL);
-}
 
 void initialize_semaphores(void) {
     sem_unlink("RING_FILLED");
@@ -66,7 +58,7 @@ void initialize_semaphores(void) {
     }
 }
 
-void handle_menu(ring_shared_buffer *ring_queue, node_list **list_child_process) {
+void handle_menu(ring_shared_buffer *ring_queue) {
     int status;
     char ch;
     do {
@@ -84,7 +76,8 @@ void handle_menu(ring_shared_buffer *ring_queue, node_list **list_child_process)
                 if (pid == 0) {
                     producer(ring_queue->shmid);
                 } else {
-                    push_list(list_child_process, pid, 'P');
+                    childs = (pid_t*)realloc(childs, (total_size + 1) * sizeof(pid_t));
+                    childs[total_size++] = pid;
                 }
                 break;
             }
@@ -93,16 +86,16 @@ void handle_menu(ring_shared_buffer *ring_queue, node_list **list_child_process)
                 if (pid == 0) {
                     consumer(ring_queue->shmid);
                 } else {
-                    push_list(list_child_process, pid, 'C');
+                    childs = (pid_t*)realloc(childs, (total_size + 1) * sizeof(pid_t));
+                    childs[total_size++] = pid;
                 }
                 break;
             }
-            case 'l': {
-                display_list(*list_child_process);
-                break;
-            }
             case 'q': {
-                delete_all_child_proc(*list_child_process);
+                for (size_t i = 0; i < total_size; ++i) {
+                    kill(childs[i], SIGUSR1);
+                    kill(childs[i], SIGKILL);
+                }
                 clear_shared_memory(ring_queue);
                 IS_RUNNING = false;
                 break;
@@ -132,31 +125,21 @@ void close_semaphores(void) {
 
 int main(void) {
     srand(time(NULL));
-    setup_signal_handler();
+    signal(SIGUSR1, handler_stop_proc);
 
     initialize_semaphores();
 
     ring_shared_buffer *ring_queue = NULL;
-    node_list *list_child_process = NULL;
-    push_list(&list_child_process, getpid(), '-');
 
     for (size_t i = 0; i < BUFFER_SIZE; ++i)
         append(&ring_queue);
 
     printf("Shmid segment : %d\n", ring_queue->shmid);
 
-    handle_menu(ring_queue, &list_child_process);
+    handle_menu(ring_queue);
 
     close_semaphores();
     return 0;
-}
-
-void delete_all_child_proc(node_list *head) {
-    while (head->next) {
-        pid_t pid = pop_list(&head);
-        kill(pid, SIGKILL);
-    }
-    printf("All child processes are deleted.\n");
 }
 
 u_int16_t control_sum(const u_int8_t *data, size_t length) {
