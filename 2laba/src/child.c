@@ -21,7 +21,6 @@ int main(int argc, char *argv[]) {
         if (var_value) {
             printf("%s: %s\n", var_name, var_value);
         } else {
-            //printf("%s not found in environment.\n", var_name);
             continue;
         }
     }

@@ -75,7 +75,6 @@ void handle_menu(ring_shared_buffer *ring_queue, node_list **list_child_process)
         printf("p - Add a producer\n");
         printf("c - Add a consumer\n");
         printf("l - List processes\n");
-        printf("k - Kill process by number\n");
         printf("q - Quit\n");
         printf("##########################\n");
         ch = getchar();
@@ -100,17 +99,6 @@ void handle_menu(ring_shared_buffer *ring_queue, node_list **list_child_process)
             }
             case 'l': {
                 display_list(*list_child_process);
-                break;
-            }
-            case 'k': {
-                size_t num;
-                scanf("%lu", &num);
-                if (num == 0) {
-                    printf("This process is not a child process.\n");
-                } else {
-                    pid_t pid = erase_list(list_child_process, num);
-                    if (pid != -1) kill(pid, SIGUSR1);
-                }
                 break;
             }
             case 'q': {
