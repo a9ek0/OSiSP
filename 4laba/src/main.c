@@ -96,7 +96,7 @@ void handle_menu(ring_shared_buffer *ring_queue) {
                     kill(childs[i], SIGUSR1);
                     kill(childs[i], SIGKILL);
                 }
-                clear_shared_memory(ring_queue);
+                clear_buff(ring_queue);
                 IS_RUNNING = false;
                 break;
             }
