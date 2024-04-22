@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <semaphore.h>
@@ -14,7 +15,7 @@
 #define SIGKILL     9
 #define SIGUSR1     10
 
-pid_t* childs = NULL;
+pid_t *childs = NULL;
 size_t total_size = 0;
 
 sem_t *RING_EMPTY;
@@ -33,6 +34,31 @@ Message generate_message(void);
 void handler_stop_proc();
 
 void display_message(const Message *message);
+
+void initialize_semaphores(void);
+
+void handle_menu(ring_shared_buffer *ring_queue);
+
+void close_semaphores(void);
+
+int main(void) {
+    srand(time(NULL));
+    signal(SIGUSR1, handler_stop_proc);
+
+    initialize_semaphores();
+
+    ring_shared_buffer *ring_queue = NULL;
+
+    for (size_t i = 0; i < BUFFER_SIZE; ++i)
+        append(&ring_queue);
+
+    printf("Shmid segment : %d\n", ring_queue->shmid);
+
+    handle_menu(ring_queue);
+
+    close_semaphores();
+    return 0;
+}
 
 void initialize_semaphores(void) {
     sem_unlink("RING_FILLED");
@@ -76,7 +102,7 @@ void handle_menu(ring_shared_buffer *ring_queue) {
                 if (pid == 0) {
                     producer(ring_queue->shmid);
                 } else {
-                    childs = (pid_t*)realloc(childs, (total_size + 1) * sizeof(pid_t));
+                    childs = (pid_t *) realloc(childs, (total_size + 1) * sizeof(pid_t));
                     childs[total_size++] = pid;
                 }
                 break;
@@ -86,7 +112,7 @@ void handle_menu(ring_shared_buffer *ring_queue) {
                 if (pid == 0) {
                     consumer(ring_queue->shmid);
                 } else {
-                    childs = (pid_t*)realloc(childs, (total_size + 1) * sizeof(pid_t));
+                    childs = (pid_t *) realloc(childs, (total_size + 1) * sizeof(pid_t));
                     childs[total_size++] = pid;
                 }
                 break;
@@ -123,24 +149,6 @@ void close_semaphores(void) {
     printf("Semaphores closed and unlinked.\n");
 }
 
-int main(void) {
-    srand(time(NULL));
-    signal(SIGUSR1, handler_stop_proc);
-
-    initialize_semaphores();
-
-    ring_shared_buffer *ring_queue = NULL;
-
-    for (size_t i = 0; i < BUFFER_SIZE; ++i)
-        append(&ring_queue);
-
-    printf("Shmid segment : %d\n", ring_queue->shmid);
-
-    handle_menu(ring_queue);
-
-    close_semaphores();
-    return 0;
-}
 
 u_int16_t control_sum(const u_int8_t *data, size_t length) {
     u_int16_t hash = 0;
