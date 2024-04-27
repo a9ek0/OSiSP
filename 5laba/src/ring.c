@@ -1,53 +1,130 @@
 #include "ring.h"
 
-Node *create_node() {
-    int32_t shmid = shmget(0, sizeof(Node), 0777);
-    Node *buffer = shmat(shmid, NULL, 0);
-    buffer->shmid_curr = shmid;
-    buffer->shmid_next = shmid;
-    buffer->shmid_prev = shmid;
-    buffer->flag_is_busy = false;
+#include <inttypes.h>
+
+Ring_node *create_node() {
+    Ring_node *buffer = (Ring_node *) calloc(1, sizeof(Ring_node));
+    if (!buffer) {
+        perror("Failed to allocate memory for node");
+        exit(EXIT_FAILURE);
+    }
+    buffer->next = NULL;
+    buffer->prev = NULL;
+    buffer->is_used = false;
+    // Assuming Message structure has a default initialization method or is zero-initialized
+    memset(&buffer->message, 0, sizeof(Message));
     return buffer;
 }
 
 Ring *init_ring() {
-    int32_t shmid = shmget(0, sizeof(Ring), 0777);
-    Ring *buffer = shmat(shmid, NULL, 0);
-    buffer->shmid_tail = 0;
-    buffer->shmid_begin = 0;
-    buffer->consumed = 0;
+    Ring *buffer = (Ring *) malloc(sizeof(Ring));
+    if (!buffer) {
+        perror("Failed to allocate memory for ring");
+        exit(EXIT_FAILURE);
+    }
+    buffer->begin = NULL;
+    buffer->tail = NULL;
+    buffer->size_queue = 0;
     buffer->produced = 0;
-    buffer->shmid = shmid;
+    buffer->consumed = 0;
     return buffer;
 }
 
-void allocate_node(Ring **begin) {
-    if (begin == NULL)
+void append(Ring **ring, bool flag_after) {
+    // Проверка на NULL указатель на кольцо
+    if (ring == NULL)
         exit(-100);
-
-    if (*begin == NULL) {
-        *begin = init_ring();
-    }
-
-    Node *buffer = create_node();
-    if ((*begin)->shmid_begin == 0) {
-        (*begin)->shmid_begin = buffer->shmid_curr;
-        (*begin)->shmid_tail = buffer->shmid_curr;
+    // Если кольцо не инициализировано, инициализируем его
+    if (*ring == NULL) {
+        *ring = init_ring(); // Инициализация кольца
+        Ring_node *new_node = create_node(); // Создание нового узла
+        // Установка нового узла как начального и конечного элемента кольца
+        (*ring)->begin = (*ring)->tail = new_node;
+        // Установка связей нового узла на самого себя, т.к. в кольце только один узел
+        new_node->next = new_node->prev = new_node;
+        (*ring)->size_queue++; // Увеличение размера кольца
         return;
     }
+    // Увеличение размера кольца
+    (*ring)->size_queue++;
+    // Создание нового узла
+    Ring_node *buffer = create_node();
+    // Если в кольце только один узел
+    if ((*ring)->begin->next == (*ring)->begin) {
+        // Установка нового узла между существующим узлом и самим собой
+        (*ring)->begin->next = (*ring)->begin->prev = buffer;
+        buffer->next = buffer->prev = (*ring)->begin;
+    } else {
+        // Вставка нового узла перед начальным узлом кольца
+        buffer->next = (*ring)->begin;
+        buffer->prev = (*ring)->begin->prev;
+        buffer->prev->next = buffer;
+        (*ring)->begin->prev = buffer;
+    }
+    // Если флаг flag_after установлен и новый узел находится перед хвостом кольца
+    if (flag_after) {
+        if (buffer->next == (*ring)->tail) {
+            // Если хвост и начало кольца совпадают и начальный узел не используется,
+            // устанавливаем новый узел как начало и конец кольца
+            if ((*ring)->tail == (*ring)->begin && !(*ring)->begin->is_used) {
+                (*ring)->tail = (*ring)->begin = buffer;
+            } else {
+                // Иначе, просто перемещаем хвост кольца на новый узел
+                (*ring)->tail = buffer;
+            }
+        }
+    }
+}
 
-    Node *curr = shmat((*begin)->shmid_begin, NULL, 0);
-    if (curr->shmid_curr == curr->shmid_next) {
-        buffer->shmid_next = buffer->shmid_prev = curr->shmid_curr;
-        curr->shmid_next = curr->shmid_prev = buffer->shmid_curr;
-        return;
+bool erase(Ring **ring) {
+    // Проверка на NULL указатели и наличие элементов в кольце
+    if (ring == NULL || *ring == NULL || (*ring)->begin == NULL) {
+        fprintf(stderr, "The queue is empty or not initialized.\n");
+        exit(-100);
+    }
+    // Уменьшаем размер кольца на один
+    (*ring)->size_queue--;
+    bool result = false; // Результат, указывающий, был ли узел использован
+
+    // Выбираем узел для удаления, начиная с хвоста
+    Ring_node *to_erase = (*ring)->tail;
+
+//    if ((*ring)->begin == (*ring)->tail) { // Если в кольце только один элемент
+    if ((*ring)->size_queue == 0) { // Если в кольце только один элемент
+        printf("Only one element left in the ring, cannot erase.\n");
+        result = to_erase->is_used;
+        (*ring)->size_queue++;
+    } else { // Если в кольце несколько элементов
+        // Перестраиваем связи между узлами, исключая удаляемый узел из кольца
+        to_erase->prev->next = to_erase->next;
+        to_erase->next->prev = to_erase->prev;
+        // Если удаляемый узел является началом кольца, перемещаем начало
+        if (to_erase == (*ring)->begin) {
+            (*ring)->begin = to_erase->next;
+        }
+        // Если удаляемый узел является концом кольца, перемещаем конец
+        if (to_erase == (*ring)->tail) {
+            (*ring)->tail = to_erase->prev;
+        }
+        result = to_erase->is_used; // Запоминаем, был ли узел использован
+        free(to_erase); // Освобождаем память узла
     }
 
-    Node *prev = shmat(curr->shmid_prev, NULL, 0);
-    buffer->shmid_next = curr->shmid_curr;
-    buffer->shmid_prev = prev->shmid_curr;
-    prev->shmid_next = buffer->shmid_curr;
-    curr->shmid_prev = buffer->shmid_curr;
+    return result; // Возвращаем результат, указывающий, был ли узел использован
+}
+
+void clear_ring(Ring **ring) {
+    if (ring == NULL || *ring == NULL)
+        return;
+    Ring_node *current = (*ring)->begin;
+    Ring_node *next;
+    for (size_t i = 0; i < (*ring)->size_queue; ++i) {
+        next = current->next;
+        free(current);
+        current = next;
+    }
+    free(*ring);
+    *ring = NULL;
 }
 
 void push_message(Ring *ring, Message *message) {
@@ -55,20 +132,19 @@ void push_message(Ring *ring, Message *message) {
         printf("The ring is empty.\n");
         return;
     }
-    if (ring->shmid_begin == 0) {
+    if (ring->begin == NULL) {
         printf("There are 0 places in the ring.\n");
         return;
     }
-    Node *curr = shmat(ring->shmid_tail, NULL, 0);
-    if (curr->flag_is_busy == true) {
+    Ring_node *curr = ring->tail;
+    if (curr->is_used == true) {
         printf("No free places.\n");
         return;
     }
-
-    *curr->message = *message;
-
-    curr->flag_is_busy = true;
-    ring->shmid_tail = curr->shmid_next;
+    // Correctly copy the message to the current node
+    curr->message = *message; // Directly assign the message struct
+    curr->is_used = true;
+    ring->tail = ring->tail->next;
     ring->produced++;
 }
 
@@ -77,45 +153,39 @@ Message *pop_message(Ring *ring) {
         printf("The ring is empty.\n");
         return NULL;
     }
-    if (ring->shmid_begin == 0) {
+    if (ring->begin == NULL) {
         printf("There are 0 places in the ring.\n");
         return NULL;
     }
-    Node *curr = shmat(ring->shmid_begin, NULL, 0);
-    if (curr->flag_is_busy == false) {
-        printf("No messages to retrieve.\n");
+    Ring_node *curr = ring->begin;
+    if (curr->is_used == false) {
+        printf("No messages to pop.\n");
         return NULL;
     }
 
-    curr->flag_is_busy = false;
-    Message *message = (Message *) calloc(1, sizeof(Message));
-
-    if (curr->message[0].size > 0) { // Check if the message has data
-        memcpy(message->data, curr->message[0].data, curr->message[0].size);
-        message->size = curr->message[0].size;
-        message->hash = curr->message[0].hash;
-        message->type = curr->message[0].type;
+    // Allocate memory for a new Message struct and copy the message
+    Message *popped_message = (Message *) malloc(sizeof(Message));
+    if (!popped_message) {
+        perror("Failed to allocate memory for message");
+        exit(EXIT_FAILURE);
     }
+    *popped_message = curr->message; // Copy the message struct
 
-    ring->shmid_begin = curr->shmid_next;
+    curr->is_used = false;
+    ring->begin = ring->begin->next;
     ring->consumed++;
-    return message;
+    return popped_message;
 }
 
-void clear_buff(Ring *ring_queue) {
-    int32_t curr;
-    Node *buffer = shmat(ring_queue->shmid_begin, NULL, 0);
-    while (buffer->shmid_next != ring_queue->shmid_tail) {
-        curr = buffer->shmid_curr;
-        int32_t shmid_next = buffer->shmid_next;
-        shmdt(buffer);
-        shmctl(curr, IPC_RMID, NULL);
-        buffer = shmat(shmid_next, NULL, 0);
+void print_ring_nodes(const Ring *ring) {
+    if (ring == NULL || ring->begin == NULL) {
+        printf("The ring is empty.\n");
+        return;
     }
-    curr = buffer->shmid_curr;
-    shmdt(buffer);
-    shmctl(curr, IPC_RMID, NULL);
-    curr = ring_queue->shmid;
-    shmdt(ring_queue);
-    shmctl(curr, IPC_RMID, NULL);
+    Ring_node *current = ring->begin;
+    int count = 1;
+    do {
+        printf("Node %d\n", count++);
+        current = current->next;
+    } while (current != ring->begin); // Продолжаем, пока не вернемся к начальному узлу
 }

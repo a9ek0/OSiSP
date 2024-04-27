@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #define LEN_MESSAGE 255
+#define RING_SIZE 5
 
 typedef struct {
     u_int8_t data[LEN_MESSAGE];
@@ -18,13 +19,13 @@ typedef struct {
     u_int8_t type;
 } Message;
 
-typedef struct Ring_node {
+/*typedef struct Ring_node {
     int32_t shmid_curr;
     int32_t shmid_next;
     int32_t shmid_prev;
     Message message[LEN_MESSAGE];
-    bool flag_is_busy;
-} Node;
+    bool is_used;
+} Ring_node;
 
 typedef struct Ring {
     int32_t shmid;
@@ -32,19 +33,39 @@ typedef struct Ring {
     size_t produced;
     int32_t shmid_begin;
     int32_t shmid_tail;
+    size_t size_queue;
+} Ring;*/
+
+typedef struct Ring_node {
+    struct Ring_node *next;
+    struct Ring_node *prev;
+    Message message;
+    bool is_used;
+} Ring_node;
+
+typedef struct Ring {
+    Ring_node *begin;
+    Ring_node *tail;
+    size_t produced;
+    size_t consumed;
+    size_t size_queue;
 } Ring;
+
+Ring_node *create_node();
 
 Ring *init_ring();
 
-void clear_buff(Ring *);
+void append(Ring **, bool);
 
-Message *pop_message(Ring *);
+bool erase(Ring **);
 
-Node *create_node();
-
-void allocate_node(Ring **begin);
+void clear_ring(Ring **);
 
 void push_message(Ring *ring, Message *message);
+
+Message *pop_message(Ring *ring);
+
+void print_ring_nodes(const Ring *ring);
 
 #endif //RING_H
 

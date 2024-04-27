@@ -4,15 +4,12 @@
 #include <stdlib.h>
 #include <semaphore.h>
 #include <unistd.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <pthread.h>
 #include <fcntl.h>
 #include "ring.h"
 #include <time.h>
-
-#define BUFFER_SIZE 6
 
 pthread_t *threads = NULL;
 size_t thread_count = 0;
@@ -21,6 +18,9 @@ pthread_mutex_t mutex;
 sem_t *RING_EMPTY;
 sem_t *RING_FILLED;
 _Thread_local bool IS_RUNNING = true;
+
+size_t consumer_passes = 0;
+size_t producer_passes = 0;
 
 void *producer(void *arg);
 
@@ -46,10 +46,8 @@ int main(void) {
     initialize_semaphores();
 
     Ring *ring_queue = NULL;
-    for (size_t i = 0; i < BUFFER_SIZE; ++i)
-        allocate_node(&ring_queue);
-
-    printf("Shmid segment : %d\n", ring_queue->shmid);
+    for (size_t i = 0; i < RING_SIZE; ++i)
+        append(&ring_queue, false);
 
     menu(ring_queue);
 
@@ -68,7 +66,7 @@ void initialize_semaphores(void) {
         exit(EXIT_FAILURE);
     }
 
-    RING_EMPTY = sem_open("RING_EMPTY", O_CREAT, 0777, BUFFER_SIZE);
+    RING_EMPTY = sem_open("RING_EMPTY", O_CREAT, 0777, RING_SIZE);
     if (RING_EMPTY == SEM_FAILED) {
         perror("Failed to open RING_EMPTY semaphore");
         exit(EXIT_FAILURE);
@@ -89,22 +87,87 @@ void menu(Ring *ring_queue) {
         printf("- - Decrease queue size\n");
         printf("q - Quit\n");
         printf("##########################\n");
+        fflush(stdin);
         ch = getchar();
         switch (ch) {
             case 'p': {
-                pthread_create(&threads[thread_count++], NULL, producer, ring_queue);
+                if (ring_queue == NULL) {
+                    fprintf(stderr, "Ring queue is not initialized.\n");
+                    exit(EXIT_FAILURE);
+                }
+                if (ring_queue->size_queue < 1) {
+                    printf("The size of ring is less then 1.\n");
+                    break;
+                }
+
+                threads = (pthread_t *) (pthread_t *) realloc(threads, (thread_count + 1) * sizeof(pthread_t));
+
+                int ret = pthread_create(&threads[thread_count], NULL, producer, (void *)ring_queue);
+
+                if (ret != 0) {
+                    fprintf(stderr, "Failed to create a producer thread.\n");
+                    exit(EXIT_FAILURE);
+                } else {
+                    thread_count++;
+                }
                 break;
             }
             case 'c': {
-                pthread_create(&threads[thread_count++], NULL, consumer, ring_queue);
+                if (ring_queue == NULL) {
+                    fprintf(stderr, "Ring queue is not initialized.\n");
+                    exit(EXIT_FAILURE);
+                }
+                if (ring_queue->size_queue < 1) {
+                    printf("The size of ring is less then 1.\n");
+                    break;
+                }
+
+                threads = (pthread_t *) (pthread_t *) realloc(threads, (thread_count + 1) * sizeof(pthread_t));
+
+                int ret = pthread_create(&threads[thread_count], NULL, consumer, (void *)ring_queue);
+
+                if (ret != 0) {
+                    fprintf(stderr, "Failed to create a producer thread.\n");
+                    exit(EXIT_FAILURE);
+                } else {
+                    thread_count++;
+                }
+                break;
+            }
+            case '+': {
+                pthread_mutex_lock(&mutex);
+                append(&ring_queue, true);
+                if (ring_queue != NULL) {
+                    printf("Insert, count of places : %lu\n", ring_queue->size_queue);
+                }
+                sem_post(RING_EMPTY);
+                print_ring_nodes(ring_queue);
+                pthread_mutex_unlock(&mutex);
+                break;
+            }
+            case '-': {
+                pthread_mutex_lock(&mutex);
+                sleep(2);
+                bool flag_execute = erase(&ring_queue);
+                if (flag_execute == false) {
+                    producer_passes++;
+                }
+                if (flag_execute == true) {
+                    consumer_passes++;
+                }
+                if (ring_queue != NULL) {
+                    printf("Extract, count of places : %lu\n", ring_queue->size_queue);
+                }
+                print_ring_nodes(ring_queue);
+                pthread_mutex_unlock(&mutex);
                 break;
             }
             case 'q': {
                 IS_RUNNING = false;
-                for (size_t i = 0; i < thread_count; ++i) {
-                    pthread_join(threads[i], NULL);
+                for (size_t i = 0; i < thread_count - 1; ++i) {
+                    pthread_cancel(threads[i]);
                 }
-                clear_buff(ring_queue);
+                clear_ring(&ring_queue);
                 break;
             }
 
@@ -128,7 +191,7 @@ void close_semaphores(void) {
     sem_close(RING_EMPTY);
     sem_close(RING_FILLED);
 
-    printf("Semaphores closed and unlinked.\n");
+    printf("Semaphores and mutex closed and unlinked.\n");
 }
 
 Message generate_message(void) {
@@ -170,11 +233,16 @@ void handler_stop_proc() {
 }
 
 void *consumer(void *arg) {
-    Ring *queue = (Ring *)arg;
+    Ring *queue = (Ring *) arg;
     signal(SIGUSR1, handler_stop_proc);
     do {
         sem_wait(RING_FILLED);
         pthread_mutex_lock(&mutex);
+        if (consumer_passes != 0) {
+            consumer_passes--;
+            pthread_mutex_unlock(&mutex);
+            continue;
+        }
         sleep(2);
         Message *message = pop_message(queue);
         pthread_mutex_unlock(&mutex);
@@ -197,11 +265,16 @@ void *consumer(void *arg) {
 }
 
 void *producer(void *arg) {
-    Ring *queue = (Ring *)arg;
+    Ring *queue = (Ring *) arg;
     signal(SIGUSR1, handler_stop_proc);
     do {
         sem_wait(RING_EMPTY);
         pthread_mutex_lock(&mutex);
+        if (producer_passes != 0) {
+            producer_passes--;
+            pthread_mutex_unlock(&mutex);
+            continue;
+        }
         sleep(2);
         Message new_message = generate_message();
         push_message(queue, &new_message);
