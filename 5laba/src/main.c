@@ -15,8 +15,8 @@ pthread_t *threads = NULL;
 size_t thread_count = 0;
 pthread_mutex_t mutex;
 
-sem_t *RING_EMPTY;
-sem_t *RING_FILLED;
+sem_t *items;
+sem_t *free_space;
 _Thread_local bool IS_RUNNING = true;
 
 size_t consumer_passes = 0;
@@ -56,19 +56,19 @@ int main(void) {
 }
 
 void initialize_semaphores(void) {
-    sem_unlink("RING_FILLED");
-    sem_unlink("RING_EMPTY");
+    sem_unlink("free_space");
+    sem_unlink("items");
     sem_unlink("MUTEX");
 
-    RING_FILLED = sem_open("RING_FILLED", O_CREAT, 0777, 0);
-    if (RING_FILLED == SEM_FAILED) {
-        perror("Failed to open RING_FILLED semaphore");
+    free_space = sem_open("free_space", O_CREAT, 0777, 0);
+    if (free_space == SEM_FAILED) {
+        perror("Failed to open free_space semaphore");
         exit(EXIT_FAILURE);
     }
 
-    RING_EMPTY = sem_open("RING_EMPTY", O_CREAT, 0777, RING_SIZE);
-    if (RING_EMPTY == SEM_FAILED) {
-        perror("Failed to open RING_EMPTY semaphore");
+    items = sem_open("items", O_CREAT, 0777, RING_SIZE);
+    if (items == SEM_FAILED) {
+        perror("Failed to open items semaphore");
         exit(EXIT_FAILURE);
     }
 
@@ -140,8 +140,7 @@ void menu(Ring *ring_queue) {
                 if (ring_queue != NULL) {
                     printf("Insert, count of places : %lu\n", ring_queue->size_queue);
                 }
-                sem_post(RING_EMPTY);
-                print_ring_nodes(ring_queue);
+                sem_post(items);
                 pthread_mutex_unlock(&mutex);
                 break;
             }
@@ -154,11 +153,11 @@ void menu(Ring *ring_queue) {
                 }
                 if (flag_execute == true) {
                     consumer_passes++;
+                    sem_wait(free_space);
                 }
                 if (ring_queue != NULL) {
                     printf("Extract, count of places : %lu\n", ring_queue->size_queue);
                 }
-                print_ring_nodes(ring_queue);
                 pthread_mutex_unlock(&mutex);
                 break;
             }
@@ -183,13 +182,13 @@ void menu(Ring *ring_queue) {
 }
 
 void close_semaphores(void) {
-    sem_unlink("RING_FILLED");
-    sem_unlink("RING_EMPTY");
+    sem_unlink("free_space");
+    sem_unlink("items");
     sem_unlink("MUTEX");
 
     pthread_mutex_destroy(&mutex);
-    sem_close(RING_EMPTY);
-    sem_close(RING_FILLED);
+    sem_close(items);
+    sem_close(free_space);
 
     printf("Semaphores and mutex closed and unlinked.\n");
 }
@@ -236,7 +235,7 @@ void *consumer(void *arg) {
     Ring *queue = (Ring *) arg;
     signal(SIGUSR1, handler_stop_proc);
     do {
-        sem_wait(RING_FILLED);
+        sem_wait(free_space);
         pthread_mutex_lock(&mutex);
         if (consumer_passes != 0) {
             consumer_passes--;
@@ -246,7 +245,7 @@ void *consumer(void *arg) {
         sleep(2);
         Message *message = pop_message(queue);
         pthread_mutex_unlock(&mutex);
-        sem_post(RING_EMPTY);
+        sem_post(items);
         if (message != NULL) {
             display_message(message);
             free(message);
@@ -268,7 +267,7 @@ void *producer(void *arg) {
     Ring *queue = (Ring *) arg;
     signal(SIGUSR1, handler_stop_proc);
     do {
-        sem_wait(RING_EMPTY);
+        sem_wait(items);
         pthread_mutex_lock(&mutex);
         if (producer_passes != 0) {
             producer_passes--;
@@ -279,7 +278,7 @@ void *producer(void *arg) {
         Message new_message = generate_message();
         push_message(queue, &new_message);
         pthread_mutex_unlock(&mutex);
-        sem_post(RING_FILLED);
+        sem_post(free_space);
         printf("Produced from pthread with id = %lu\n", pthread_self());
         printf("Total objects created = %lu\n", queue->produced);
 

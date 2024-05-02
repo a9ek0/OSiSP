@@ -1,10 +1,8 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdbool.h>
 #include "process_management.h"
 #include "signal_handling.h"
 #include "utilities.h"
-#include "globals.h"
 
 int main(void) {
     init_signals_handling();
@@ -33,7 +31,7 @@ int main(void) {
                 break;
             }
             case 'k': {
-                terminate_all_child_processes();
+                remove_all_child_processes();
                 break;
             }
             case 's': {

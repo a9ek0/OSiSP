@@ -44,15 +44,21 @@ void create_child_process(void) {
             child_processes = tmp;
             tmp = NULL;
         }
-        child_init(pid);
+
+        sprintf(child_processes[num_child_processes - 1].name, "C_%02d", (int) num_child_processes - 1);
+        child_processes[num_child_processes - 1].pid = pid;
+        child_processes[num_child_processes - 1].is_stopped = true;
+
         printf("%s with pid = %d was created\n", get_last_child_process().name, pid);
-        printf("size of child_processes - %d\n", (int) num_child_processes);
+        printf("number of child processes - %d\n", (int) num_child_processes);
     }
 }
 
 void terminate_last_child_process(void) {
-    delete_child_process(get_last_child_process().pid);
-    printf("size of child_processes - %d\n", (int) num_child_processes);
+    kill(get_last_child_process().pid, SIGTERM);
+    printf("%s with pid = %d was deleted\n", get_last_child_process().name, get_last_child_process().pid);
+    num_child_processes--;
+    printf("number of child processes - %d\n", (int) num_child_processes);
 }
 
 void list_all_processes(void) {
@@ -66,10 +72,6 @@ void list_all_processes(void) {
             printf("running\n");
         }
     }
-}
-
-void terminate_all_child_processes(void) {
-    remove_all_child_processes();
 }
 
 void stop_child_process(int index) {
@@ -104,7 +106,7 @@ void resume_child_process(int index) {
 }
 
 void quit_program(void) {
-    terminate_all_child_processes();
+    remove_all_child_processes();
     if (child_processes) {
         free(child_processes);
     }
@@ -131,26 +133,16 @@ char *get_process_name_by_pid(pid_t pid) {
     return NULL;
 }
 
-
-void child_init(pid_t pid) {
-    sprintf(child_processes[num_child_processes - 1].name, "C_%02d", (int) num_child_processes - 1);
-    child_processes[num_child_processes - 1].pid = pid;
-    child_processes[num_child_processes - 1].is_stopped = true;
-}
-
 process_info get_last_child_process() {
     return child_processes[num_child_processes - 1];
 }
 
-void delete_child_process(pid_t pid) {
-    kill(pid, SIGTERM);
-    printf("%s with pid = %d was deleted\n", get_last_child_process().name, get_last_child_process().pid);
-    num_child_processes--;
-}
-
 void remove_all_child_processes(void) {
-    while (num_child_processes)
-        delete_child_process(get_last_child_process().pid);
+    while (num_child_processes) {
+        kill(get_last_child_process().pid, SIGTERM);
+        printf("%s with pid = %d was deleted\n", get_last_child_process().name, get_last_child_process().pid);
+        num_child_processes--;
+    }
     printf("all child processes were successfully deleted\n");
 }
 
@@ -178,5 +170,5 @@ void prioritize_child_process(int index) {
         }
 
     }
-        resume_child_process(-1);
+    resume_child_process(-1);
 }

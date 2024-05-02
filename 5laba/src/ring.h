@@ -19,23 +19,6 @@ typedef struct {
     u_int8_t type;
 } Message;
 
-/*typedef struct Ring_node {
-    int32_t shmid_curr;
-    int32_t shmid_next;
-    int32_t shmid_prev;
-    Message message[LEN_MESSAGE];
-    bool is_used;
-} Ring_node;
-
-typedef struct Ring {
-    int32_t shmid;
-    size_t consumed;
-    size_t produced;
-    int32_t shmid_begin;
-    int32_t shmid_tail;
-    size_t size_queue;
-} Ring;*/
-
 typedef struct Ring_node {
     struct Ring_node *next;
     struct Ring_node *prev;

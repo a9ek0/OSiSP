@@ -40,9 +40,10 @@ int main(void) {
                 continue;
             }
 
-            printf("################################################\n");
+            printf(SEPARATE);
             printf("Parent PID: %5d | Child PID: %5d\n", (int) getppid(), (int) getpid());
             printf("Pair Counts: 00: %5d | 01: %5d | 10: %5d | 11: %5d\n", (int) c00, (int) c01, (int) c10, (int) c11);
+            printf(SEPARATE);
 
             i = 0;
 

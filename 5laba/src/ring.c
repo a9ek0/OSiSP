@@ -11,7 +11,7 @@ Ring_node *create_node() {
     buffer->next = NULL;
     buffer->prev = NULL;
     buffer->is_used = false;
-    // Assuming Message structure has a default initialization method or is zero-initialized
+
     memset(&buffer->message, 0, sizeof(Message));
     return buffer;
 }
@@ -31,86 +31,61 @@ Ring *init_ring() {
 }
 
 void append(Ring **ring, bool flag_after) {
-    // Проверка на NULL указатель на кольцо
     if (ring == NULL)
         exit(-100);
-    // Если кольцо не инициализировано, инициализируем его
     if (*ring == NULL) {
-        *ring = init_ring(); // Инициализация кольца
-        Ring_node *new_node = create_node(); // Создание нового узла
-        // Установка нового узла как начального и конечного элемента кольца
+        *ring = init_ring();
+        Ring_node *new_node = create_node();
         (*ring)->begin = (*ring)->tail = new_node;
-        // Установка связей нового узла на самого себя, т.к. в кольце только один узел
         new_node->next = new_node->prev = new_node;
-        (*ring)->size_queue++; // Увеличение размера кольца
+        (*ring)->size_queue++;
         return;
     }
-    // Увеличение размера кольца
     (*ring)->size_queue++;
-    // Создание нового узла
     Ring_node *buffer = create_node();
-    // Если в кольце только один узел
-    if ((*ring)->begin->next == (*ring)->begin) {
-        // Установка нового узла между существующим узлом и самим собой
-        (*ring)->begin->next = (*ring)->begin->prev = buffer;
-        buffer->next = buffer->prev = (*ring)->begin;
-    } else {
-        // Вставка нового узла перед начальным узлом кольца
+    if (!flag_after) {
         buffer->next = (*ring)->begin;
         buffer->prev = (*ring)->begin->prev;
-        buffer->prev->next = buffer;
+        (*ring)->begin->prev->next = buffer;
         (*ring)->begin->prev = buffer;
-    }
-    // Если флаг flag_after установлен и новый узел находится перед хвостом кольца
-    if (flag_after) {
-        if (buffer->next == (*ring)->tail) {
-            // Если хвост и начало кольца совпадают и начальный узел не используется,
-            // устанавливаем новый узел как начало и конец кольца
-            if ((*ring)->tail == (*ring)->begin && !(*ring)->begin->is_used) {
-                (*ring)->tail = (*ring)->begin = buffer;
-            } else {
-                // Иначе, просто перемещаем хвост кольца на новый узел
-                (*ring)->tail = buffer;
-            }
-        }
+        (*ring)->begin = buffer;
+    } else {
+        buffer->prev = (*ring)->tail;
+        buffer->next = (*ring)->tail->next;
+        (*ring)->tail->next->prev = buffer;
+        (*ring)->tail->next = buffer;
+        (*ring)->tail = buffer;
     }
 }
 
 bool erase(Ring **ring) {
-    // Проверка на NULL указатели и наличие элементов в кольце
     if (ring == NULL || *ring == NULL || (*ring)->begin == NULL) {
         fprintf(stderr, "The queue is empty or not initialized.\n");
         exit(-100);
     }
-    // Уменьшаем размер кольца на один
     (*ring)->size_queue--;
-    bool result = false; // Результат, указывающий, был ли узел использован
+    bool result = false;
 
-    // Выбираем узел для удаления, начиная с хвоста
     Ring_node *to_erase = (*ring)->tail;
 
-//    if ((*ring)->begin == (*ring)->tail) { // Если в кольце только один элемент
-    if ((*ring)->size_queue == 0) { // Если в кольце только один элемент
+    if ((*ring)->size_queue == 1) {
         printf("Only one element left in the ring, cannot erase.\n");
         result = to_erase->is_used;
         (*ring)->size_queue++;
-    } else { // Если в кольце несколько элементов
-        // Перестраиваем связи между узлами, исключая удаляемый узел из кольца
+    } else {
         to_erase->prev->next = to_erase->next;
         to_erase->next->prev = to_erase->prev;
-        // Если удаляемый узел является началом кольца, перемещаем начало
         if (to_erase == (*ring)->begin) {
             (*ring)->begin = to_erase->next;
         }
-        // Если удаляемый узел является концом кольца, перемещаем конец
         if (to_erase == (*ring)->tail) {
             (*ring)->tail = to_erase->prev;
         }
-        result = to_erase->is_used; // Запоминаем, был ли узел использован
-        free(to_erase); // Освобождаем память узла
+        result = to_erase->is_used;
+        free(to_erase);
     }
 
-    return result; // Возвращаем результат, указывающий, был ли узел использован
+    return result;
 }
 
 void clear_ring(Ring **ring) {
@@ -141,8 +116,7 @@ void push_message(Ring *ring, Message *message) {
         printf("No free places.\n");
         return;
     }
-    // Correctly copy the message to the current node
-    curr->message = *message; // Directly assign the message struct
+    curr->message = *message;
     curr->is_used = true;
     ring->tail = ring->tail->next;
     ring->produced++;
@@ -163,13 +137,12 @@ Message *pop_message(Ring *ring) {
         return NULL;
     }
 
-    // Allocate memory for a new Message struct and copy the message
     Message *popped_message = (Message *) malloc(sizeof(Message));
     if (!popped_message) {
         perror("Failed to allocate memory for message");
         exit(EXIT_FAILURE);
     }
-    *popped_message = curr->message; // Copy the message struct
+    *popped_message = curr->message;
 
     curr->is_used = false;
     ring->begin = ring->begin->next;
@@ -187,5 +160,5 @@ void print_ring_nodes(const Ring *ring) {
     do {
         printf("Node %d\n", count++);
         current = current->next;
-    } while (current != ring->begin); // Продолжаем, пока не вернемся к начальному узлу
+    } while (current != ring->begin);
 }

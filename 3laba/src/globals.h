@@ -6,6 +6,7 @@
 
 #define MAX_CHILDREN 8
 #define CHILD_NAME_LENGTH 16
+#define SEPARATE "################################################\n"
 
 typedef struct process_info {
     pid_t pid;

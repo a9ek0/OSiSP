@@ -16,9 +16,9 @@
 pid_t *childs = NULL;
 size_t total_size = 0;
 
-sem_t *RING_EMPTY;
-sem_t *RING_FILLED;
-sem_t *MUTEX;
+sem_t *items;
+sem_t *free_space;
+sem_t *mutex;
 volatile bool IS_RUNNING = true;
 
 void producer(int32_t);
@@ -33,54 +33,54 @@ void display_message(const Message *message);
 
 void initialize_semaphores(void);
 
-void handle_menu(Ring *ring_queue);
+void menu(Ring *ring_queue);
 
 void close_semaphores(void);
 
 int main(void) {
     srand(time(NULL));
+
     signal(SIGUSR1, handler_stop_proc);
 
     initialize_semaphores();
 
     Ring *ring_queue = NULL;
-
     for (size_t i = 0; i < BUFFER_SIZE; ++i)
         allocate_node(&ring_queue);
 
     printf("Shmid segment : %d\n", ring_queue->shmid);
 
-    handle_menu(ring_queue);
+    menu(ring_queue);
 
     close_semaphores();
     return 0;
 }
 
 void initialize_semaphores(void) {
-    sem_unlink("RING_FILLED");
-    sem_unlink("RING_EMPTY");
-    sem_unlink("MUTEX");
+    sem_unlink("free_space");
+    sem_unlink("items");
+    sem_unlink("mutex");
 
-    RING_FILLED = sem_open("RING_FILLED", O_CREAT, 0777, 0);
-    if (RING_FILLED == SEM_FAILED) {
-        perror("Failed to open RING_FILLED semaphore");
+    free_space = sem_open("free_space", O_CREAT, 0777, 0);
+    if (free_space == SEM_FAILED) {
+        perror("Failed to open free_space semaphore");
         exit(EXIT_FAILURE);
     }
 
-    RING_EMPTY = sem_open("RING_EMPTY", O_CREAT, 0777, BUFFER_SIZE);
-    if (RING_EMPTY == SEM_FAILED) {
-        perror("Failed to open RING_EMPTY semaphore");
+    items = sem_open("items", O_CREAT, 0777, BUFFER_SIZE);
+    if (items == SEM_FAILED) {
+        perror("Failed to open items semaphore");
         exit(EXIT_FAILURE);
     }
 
-    MUTEX = sem_open("MUTEX", O_CREAT, 0777, 1);
-    if (MUTEX == SEM_FAILED) {
-        perror("Failed to open MUTEX semaphore");
+    mutex = sem_open("mutex", O_CREAT, 0777, 1);
+    if (mutex == SEM_FAILED) {
+        perror("Failed to open mutex semaphore");
         exit(EXIT_FAILURE);
     }
 }
 
-void handle_menu(Ring *ring_queue) {
+void menu(Ring *ring_queue) {
     int status;
     char ch;
     do {
@@ -133,13 +133,13 @@ void handle_menu(Ring *ring_queue) {
 }
 
 void close_semaphores(void) {
-    sem_unlink("RING_FILLED");
-    sem_unlink("RING_EMPTY");
-    sem_unlink("MUTEX");
+    sem_unlink("free_space");
+    sem_unlink("items");
+    sem_unlink("mutex");
 
-    sem_close(MUTEX);
-    sem_close(RING_EMPTY);
-    sem_close(RING_FILLED);
+    sem_close(mutex);
+    sem_close(items);
+    sem_close(free_space);
 
     printf("Semaphores closed and unlinked.\n");
 }
@@ -185,16 +185,16 @@ void handler_stop_proc() {
 void consumer(int32_t shmid) {
     Ring *queue = shmat(shmid, NULL, 0);
     do {
-        sem_wait(RING_FILLED);
-        sem_wait(MUTEX);
+        sem_wait(free_space);
+        sem_wait(mutex);
         sleep(2);
         Message *message = pop_message(queue);
         if (message != NULL) {
             display_message(message);
             free(message);
         }
-        sem_post(MUTEX);
-        sem_post(RING_EMPTY);
+        sem_post(mutex);
+        sem_post(items);
         printf("Consumed from CHILD with PID = %d\n", getpid());
         printf("Total messages retrieved = %lu\n", queue->consumed);
     } while (IS_RUNNING);
@@ -204,13 +204,13 @@ void consumer(int32_t shmid) {
 void producer(int32_t shmid) {
     Ring *queue = shmat(shmid, NULL, 0);
     do {
-        sem_wait(RING_EMPTY);
-        sem_wait(MUTEX);
+        sem_wait(items);
+        sem_wait(mutex);
         sleep(2);
         Message new_message = generate_message();
         push_message(queue, &new_message);
-        sem_post(MUTEX);
-        sem_post(RING_FILLED);
+        sem_post(mutex);
+        sem_post(free_space);
         printf("Produced from CHILD with PID = %d\n", getpid());
         printf("Total objects created = %lu\n", queue->produced);
     } while (IS_RUNNING);
