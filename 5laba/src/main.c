@@ -13,8 +13,8 @@
 
 pthread_t *threads = NULL;
 size_t thread_count = 0;
-pthread_mutex_t mutex;
 
+pthread_mutex_t mutex;
 sem_t *items;
 sem_t *free_space;
 _Thread_local bool IS_RUNNING = true;
