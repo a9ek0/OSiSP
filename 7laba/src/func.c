@@ -33,7 +33,7 @@ void menu(void) {
             case 'p':
                 if (record_index == -1) {
                     printf("Get the record with the GET option before using the PUT option.\n");
-                    continue;
+                    break;
                 }
                 record_t new_record;
 

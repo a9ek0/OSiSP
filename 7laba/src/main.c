@@ -9,7 +9,10 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    create_file(argv[1]);
+    FILE *file;
+    if ((file = fopen(argv[1], "r")) == NULL) {
+        create_file(argv[1]);
+    }
 
     fd = open(argv[1], O_RDWR);
     if (fd == -1) {
